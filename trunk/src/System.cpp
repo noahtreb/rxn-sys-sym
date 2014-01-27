@@ -166,7 +166,7 @@ void System::execRxn(bool fwd) {
                 negState = true;
             }
             
-            if ((fwd && rxn->stoichSpecies[i]->stateBoundedFwd) || (!fwd && rxn->stoichSpecies[i]->stateBoundedRev)) {
+            if (rxn->stoichSpecies[i]->stateBounded) {
                 Species* species = rxn->stoichSpecies[i];
                 if (species->state < species->stateLowerBound || species->state > species->stateUpperBound) {
                     boundBreach = true;

@@ -13,7 +13,7 @@ public:
     FileInterface(std::string fileName);
     virtual ~FileInterface();
     
-    System* readFileData(int& numTrials, double& startTime, double& endTime, int& numTimePts, double& timeStep, double& stoppingTol, int& numDataSavePts, int*& dataSavePts) const;
+    System* readFileData(int& numTrials, double& startTime, double& endTime, int& numTimePts, double& timeStep, double& stoppingTol, int& numDataSavePts, int*& dataSavePts, int& numBoundedSpeciesStates) const;
     double** readLastDataPt(std::string varName, int numTrials, int numSpecies, int numTimePts) const;
     double*** readStateData(std::string varName, int numTrials, int numSpecies, int numTimePts) const;
         

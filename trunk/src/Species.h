@@ -8,10 +8,9 @@ public:
     const bool stateChanges;
     const double stateUpperBound;
     const double stateLowerBound;
-    const bool stateBoundedFwd;
-    const bool stateBoundedRev;
+    const bool stateBounded;
     
-    Species(const int id, double state, const bool stateChanges, const double stateUpperBound, const double stateLowerBound, const bool stateBoundedFwd, const bool stateBoundedRev);
+    Species(const int id, double state, const bool stateChanges, const double stateUpperBound, const double stateLowerBound, const bool stateBounded);
     Species(const Species& other);
     virtual ~Species();
 private:

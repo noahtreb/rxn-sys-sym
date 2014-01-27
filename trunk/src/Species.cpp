@@ -8,14 +8,12 @@ Species::Species(const int id,
         const bool stateChanges,
         const double stateUpperBound, 
         const double stateLowerBound, 
-        const bool stateBoundedFwd, 
-        const bool stateBoundedRev) : 
+        const bool stateBounded) : 
         id(id),
         stateChanges(stateChanges),
         stateUpperBound(stateUpperBound),
         stateLowerBound(stateLowerBound),
-        stateBoundedFwd(stateBoundedFwd),
-        stateBoundedRev(stateBoundedRev) {
+        stateBounded(stateBounded) {
     this->state = state;
 }
 
@@ -24,8 +22,7 @@ Species::Species(const Species& other) :
         stateChanges(other.stateChanges),
         stateUpperBound(other.stateUpperBound),
         stateLowerBound(other.stateLowerBound),
-        stateBoundedFwd(other.stateBoundedFwd),
-        stateBoundedRev(other.stateBoundedRev) {
+        stateBounded(other.stateBounded) {
     this->state = other.state;
 }
 
