@@ -1,19 +1,21 @@
 #ifndef REACTION_H
 #define REACTION_H
 
+class Species;
+
 class Reaction{
 public:
     const int id;
     
     const int numStoichSpecies;
-    const int* const stoichSpeciesIds;
+    Species** stoichSpecies;
     const int* const stoichCoeffs;
     
     const int rateLaw;
     const int numRateConsts;
     
     const int numRateSpecies;
-    const int* const rateSpeciesIds;
+    Species** rateSpecies;
     
     const int numDeps;
     const int* const deps;
@@ -21,7 +23,7 @@ public:
     double prop;
     double oldProp;
     
-    Reaction(const int id, const int numStoichSpecies, const int* const stoichSpeciesIds, const int* const stoichCoeffs, const int rateLaw, const int numRateConsts, double* rateConsts, const int numRateSpecies, const int* const rateSpeciesIds, const int numDeps, const int* const deps, double vol);
+    Reaction(const int id, Species** species, const int numStoichSpecies, int* stoichSpeciesIds, const int* const stoichCoeffs, const int rateLaw, const int numRateConsts, double* rateConsts, const int numRateSpecies, int* rateSpeciesIds, const int numDeps, const int* const deps, double vol);
     Reaction(const Reaction& other);
     virtual ~Reaction();
     

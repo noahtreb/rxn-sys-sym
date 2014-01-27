@@ -4,7 +4,7 @@
 using namespace std;
 
 Species::Species(const int id,
-        double* state, 
+        double* statePtr, 
         const bool stateChanges,
         const double stateUpperBound, 
         const double stateLowerBound, 
@@ -16,7 +16,7 @@ Species::Species(const int id,
         stateLowerBound(stateLowerBound),
         stateBoundedFwd(stateBoundedFwd),
         stateBoundedRev(stateBoundedRev) {
-    this->state = state;
+    this->statePtr = statePtr;
 }
 
 Species::Species(const Species& other) :
@@ -26,9 +26,9 @@ Species::Species(const Species& other) :
         stateLowerBound(other.stateLowerBound),
         stateBoundedFwd(other.stateBoundedFwd),
         stateBoundedRev(other.stateBoundedRev) {
-    this->state = other.state;
+    this->statePtr = other.statePtr;
 }
 
 Species::~Species() {
-    this->state = NULL;
+    this->statePtr = NULL;
 }

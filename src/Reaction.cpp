@@ -1,33 +1,43 @@
 #include "Reaction.h"
+#include "Species.h"
 #include <stdio.h>
 
 using namespace std;
 
 Reaction::Reaction(const int id,
+        Species** species,
         const int numStoichSpecies, 
-        const int* const stoichSpeciesIds, 
+        int* stoichSpeciesIds, 
         const int* const stoichCoeffs, 
         const int rateLaw, 
         const int numRateConsts, 
         double* rateConsts, 
         const int numRateSpecies, 
-        const int* const rateSpeciesIds, 
+        int* rateSpeciesIds, 
         const int numDeps,
         const int* const deps,
         double vol) : 
         id(id),
         numStoichSpecies(numStoichSpecies),
-        stoichSpeciesIds(stoichSpeciesIds), 
         stoichCoeffs(stoichCoeffs), 
         rateLaw(rateLaw), 
         numRateConsts(numRateConsts),
         rateConsts(rateConsts),
-        numRateSpecies(numRateSpecies), 
-        rateSpeciesIds(rateSpeciesIds),
+        numRateSpecies(numRateSpecies),
         numDeps(numDeps),
         deps(deps) {
     this->prop = 0;   
     this->oldProp = 0;
+    
+    this->stoichSpecies = new Species*[numStoichSpecies];    
+    for (int i = 0; i < numStoichSpecies; i++) {
+        this->stoichSpecies[i] = species[stoichSpeciesIds[i]];
+    }
+    
+    this->rateSpecies = new Species*[numRateSpecies];
+    for (int i = 0; i < numRateSpecies; i++) {
+        this->rateSpecies[i] = species[rateSpeciesIds[i]];
+    }
     
     switch(rateLaw) { // Convert to mesoscopic units.
         case 3: // Second-order (bimolecular) mass action            
@@ -38,25 +48,41 @@ Reaction::Reaction(const int id,
 
 Reaction::Reaction(const Reaction& other) : 
         id(other.id),
-        numStoichSpecies(other.numStoichSpecies),
-        stoichSpeciesIds(other.stoichSpeciesIds), 
+        numStoichSpecies(other.numStoichSpecies), 
         stoichCoeffs(other.stoichCoeffs), 
         rateLaw(other.rateLaw), 
         numRateConsts(other.numRateConsts),
         rateConsts(other.rateConsts),
-        numRateSpecies(other.numRateSpecies), 
-        rateSpeciesIds(other.rateSpeciesIds),
+        numRateSpecies(other.numRateSpecies),
         numDeps(other.numDeps),
         deps(other.deps) {
     this->prop = other.prop;
     this->oldProp = other.oldProp;
+    
+    this->stoichSpecies = new Species*[this->numStoichSpecies];    
+    for (int i = 0; i < this->numStoichSpecies; i++) {
+        this->stoichSpecies[i] = other.stoichSpecies[i];
+    }
+    
+    this->rateSpecies = new Species*[this->numRateSpecies];
+    for (int i = 0; i < this->numRateSpecies; i++) {
+        this->rateSpecies[i] = other.rateSpecies[i];
+    }
 }
 
 Reaction::~Reaction() {
-    delete[] this->stoichSpeciesIds;
+    for (int i = 0; i < this->numStoichSpecies; i++) {
+        this->stoichSpecies[i] = NULL;
+    }
+    
+    for (int i = 0; i < this->numRateSpecies; i++) {
+        this->rateSpecies[i] = NULL;
+    }
+    
+    delete[] this->stoichSpecies;
     delete[] this->stoichCoeffs;
     delete[] this->rateConsts;
-    delete[] this->rateSpeciesIds;
+    delete[] this->rateSpecies;
 }
 
 void Reaction::updateProp(double* speciesState, double volRatio) {
@@ -66,7 +92,7 @@ void Reaction::updateProp(double* speciesState, double volRatio) {
     for (int i = 0; i < this->numStoichSpecies; i++) {
         if (this->stoichCoeffs[i] < 0) {
             for (int j = 0; j < -this->stoichCoeffs[i]; j++) {
-                this->prop *= 1.0 * (speciesState[this->stoichSpeciesIds[i]] - j);// / (j + 1);
+                this->prop *= 1.0 * (this->stoichSpecies[i]->statePtr[0] - j);// / (j + 1);
             }
         }
     }
@@ -87,7 +113,7 @@ void Reaction::print() const {
     
     for (int i = 0; i < this->numStoichSpecies; i++) {
         stoichCoeff = this->stoichCoeffs[i];
-        stoichSpeciesId = this->stoichSpeciesIds[i];
+        stoichSpeciesId = this->stoichSpecies[i]->id;
         
         if (i == 0 && stoichCoeff > 0) {            
             fprintf(stdout, " -> ");

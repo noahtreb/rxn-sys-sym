@@ -11,7 +11,6 @@ class System{
 public:
     const int numRxns;
     const int numSpecies;
-    bool* speciesStateChanges;
     
     double* speciesState;
     double vol;
@@ -25,7 +24,7 @@ public:
     
     std::mt19937* rng;
     
-    System(double vol, const int numRxns, Reaction** rxns, const int numSpecies, Species** species, double* initSpeciesState, bool* speciesStateChanges);
+    System(double vol, const int numRxns, Reaction** rxns, const int numSpecies, Species** species, double* initSpeciesState);
     System(const System& other);
     virtual ~System();
     
@@ -33,8 +32,8 @@ public:
     void initFwd();
     void initRev();
     
-    void setRxnTimes(Reaction* execRxn, double execRxnTime, int dir);
-    void execRxn(int dir);
+    void setRxnTimes(Reaction* execRxn, double execRxnTime, bool fwd);
+    void execRxn(bool fwd);
     void updateTime(double newTime);
 private:
     //int findClosestTimePt(double time) const;

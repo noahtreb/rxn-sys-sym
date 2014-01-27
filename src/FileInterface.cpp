@@ -130,7 +130,7 @@ System* FileInterface::readFileData(int& numTrials, double& startTime, double& e
     }
         
     int* numRxnRateSpecies = new int[maxRxnRateSpecies];
-    file.get_var("numRxnRateSpecies")->get(numRxnRateSpecies, 1, maxRxnRateSpecies);
+    file.get_var("numRxnRateSpecies")->get(numRxnRateSpecies, 1, numRxns);
     
     int** rxnRateSpeciesIds = new int*[numRxns];
     for (int i = 0; i < numRxns; i++) {
@@ -164,10 +164,10 @@ System* FileInterface::readFileData(int& numTrials, double& startTime, double& e
     
     Reaction** rxns = new Reaction*[numRxns];    
     for (int i = 0; i < numRxns; i++) {        
-        rxns[i] = new Reaction(i, numStoichSpecies[i], rxnStoichSpeciesIds[i], rxnStoichCoeffs[i], rxnRateLaws[i], numRxnRateConsts[i], rxnRateConsts[i], numRxnRateSpecies[i], rxnRateSpeciesIds[i], numRxnDeps[i], rxnDeps[i], vol);
+        rxns[i] = new Reaction(i, species, numStoichSpecies[i], rxnStoichSpeciesIds[i], rxnStoichCoeffs[i], rxnRateLaws[i], numRxnRateConsts[i], rxnRateConsts[i], numRxnRateSpecies[i], rxnRateSpeciesIds[i], numRxnDeps[i], rxnDeps[i], vol);
     }
     
-    System* sys = new System(vol, numRxns, rxns, numSpecies, species, speciesInitState, speciesStateChanges);
+    System* sys = new System(vol, numRxns, rxns, numSpecies, species, speciesInitState);
     
     delete[] speciesInitState;
     delete[] speciesStateChangesTemp;
