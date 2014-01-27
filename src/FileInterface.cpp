@@ -16,7 +16,7 @@ FileInterface::~FileInterface() {
     
 }
 
-System* FileInterface::readFileData(int& numTrials, double& startTime, double& endTime, int& numTimePts, double& timeStep, double& stoppingTol, int& numDataSavePts, int*& dataSavePts) const {
+System* FileInterface::readFileData(int& numTrials, double& startTime, double& endTime, int& numTimePts, double& timeStep, double& stoppingTol, int& numDataSavePts, int*& dataSavePts, int& numBoundedSpeciesStates) const {
     NcFile file(this->fileName.c_str(), NcFile::ReadOnly);    
     if (!file.is_valid()) {
         fprintf(stderr, "Error: %s could not be opened.\n", this->fileName.c_str());
@@ -65,27 +65,17 @@ System* FileInterface::readFileData(int& numTrials, double& startTime, double& e
         }
     }
     
-    int* speciesStateBoundedFwdTemp = new int[numSpecies];
-    file.get_var("speciesStateBoundedFwd")->get(speciesStateBoundedFwdTemp, 1, numSpecies);
+    file.get_var("numBoundedSpeciesStates")->get(&numBoundedSpeciesStates, 1);
     
-    bool* speciesStateBoundedFwd = new bool[numSpecies];
+    int* speciesStateBoundedTemp = new int[numSpecies];
+    file.get_var("speciesStateBounded")->get(speciesStateBoundedTemp, 1, numSpecies);
+    
+    bool* speciesStateBounded = new bool[numSpecies];
     for (int i = 0; i < numSpecies; i++) {
-        if (speciesStateBoundedFwdTemp[i] == 1) {
-            speciesStateBoundedFwd[i] = true;
+        if (speciesStateBoundedTemp[i] == 1) {
+            speciesStateBounded[i] = true;
         } else {
-            speciesStateBoundedFwd[i] = false;
-        }
-    }
-    
-    int* speciesStateBoundedRevTemp = new int[numSpecies];
-    file.get_var("speciesStateBoundedRev")->get(speciesStateBoundedRevTemp, 1, numSpecies);
-    
-    bool* speciesStateBoundedRev = new bool[numSpecies];
-    for (int i = 0; i < numSpecies; i++) {
-        if (speciesStateBoundedRevTemp[i] == 1) {
-            speciesStateBoundedRev[i] = true;
-        } else {
-            speciesStateBoundedRev[i] = false;
+            speciesStateBounded[i] = false;
         }
     }
         
@@ -159,7 +149,7 @@ System* FileInterface::readFileData(int& numTrials, double& startTime, double& e
     
     Species** species = new Species*[numSpecies];
     for (int i = 0; i < numSpecies; i++) {
-        species[i] = new Species(i, NULL, speciesStateChanges[i], speciesStateUpperBounds[i], speciesStateLowerBounds[i], speciesStateBoundedFwd[i], speciesStateBoundedRev[i]);
+        species[i] = new Species(i, NULL, speciesStateChanges[i], speciesStateUpperBounds[i], speciesStateLowerBounds[i], speciesStateBounded[i]);
     }
     
     Reaction** rxns = new Reaction*[numRxns];    

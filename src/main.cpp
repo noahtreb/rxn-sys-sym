@@ -101,8 +101,9 @@ int main(int argc, const char* argv[]) {
     double timeStep;
     int numDataSavePts;
     int* dataSavePts;
+    int numBoundedSpeciesStates;
     
-    System* masterSys = fi->readFileData(numTrials, startTime, endTime, numTimePts, timeStep, stoppingTol, numDataSavePts, dataSavePts);
+    System* masterSys = fi->readFileData(numTrials, startTime, endTime, numTimePts, timeStep, stoppingTol, numDataSavePts, dataSavePts, numBoundedSpeciesStates);
             
     double* time = new double[numTimePts];  
     
@@ -163,15 +164,6 @@ int main(int argc, const char* argv[]) {
     
     Distribution* revDist = new Distribution(numTrials, rng());
     Distribution* fwdDist = new Distribution(numTrials, rng());
-    
-    lastRevStatePt = new double*[numTrials];
-    for (int i = 0; i < numTrials; i++) {
-        lastRevStatePt[i] = new double[masterSys->numSpecies];
-        
-        for (int j = 0; j < masterSys->numSpecies; j++) {
-            lastRevStatePt[i][j] = masterSys->species[j]->state;
-        }
-    }
     
     if (!skipInitFwd) {                
         progStart = omp_get_wtime();

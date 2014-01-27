@@ -43,8 +43,8 @@ int main(int argc, const char* argv[]) {
     
     NcVar* stoppingTolVar = file.add_var("stoppingTol", ncDouble);
     NcVar* numDataSavePtsVar = file.add_var("numDataSavePts", ncInt, file.get_dim("numMdls"));    
-    file.add_var("speciesStateBoundedFwd", ncInt, file.get_dim("numMdls"), file.get_dim("maxSpecies"));
-    file.add_var("speciesStateBoundedRev", ncInt, file.get_dim("numMdls"), file.get_dim("maxSpecies"));
+    file.add_var("numBoundedSpeciesStates", ncInt, file.get_dim("numMdls"));
+    file.add_var("speciesStateBounded", ncInt, file.get_dim("numMdls"), file.get_dim("maxSpecies"));
     file.add_var("speciesStateLowerBounds", ncDouble, file.get_dim("numMdls"), file.get_dim("maxSpecies"));
     file.add_var("speciesStateUpperBounds", ncDouble, file.get_dim("numMdls"), file.get_dim("maxSpecies"));
     file.add_var("dataSavePts", ncInt, file.get_dim("numMdls"), dim);
