@@ -5,7 +5,7 @@ cppLibs = -lnetcdf -lnetcdf_c++
 oFlags = 
 dFlags = -g -Wall -Wextra
 
-srcs = main.cpp FileInterface.cpp System.cpp PriorityQueue.cpp Reaction.cpp
+srcs = main.cpp Distribution.cpp FileInterface.cpp System.cpp PriorityQueue.cpp Reaction.cpp
 makeObjectFile = $(cpp) $(cppFlags) -c #-o $@
 
 .phony: clean
@@ -24,6 +24,9 @@ RxnSysSim: $(srcs)
 
 main.o: main.h main.cpp
 	$(makeObjectFile) main.cpp
+
+Distribution.o: Distribution.h Distribution.cpp
+	$(makeObjectFile) Distribution.cpp 
 
 FileInterface.o: FileInterface.h FileInterface.cpp
 	$(makeObjectFile) FileInterface.cpp
