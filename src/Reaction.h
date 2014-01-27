@@ -27,7 +27,7 @@ public:
     Reaction(const Reaction& other);
     virtual ~Reaction();
     
-    void updateProp(double* speciesState, double volRatio);
+    void updateProp(double volRatio);
     
     void print() const;
 private:    

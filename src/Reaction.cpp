@@ -85,14 +85,14 @@ Reaction::~Reaction() {
     delete[] this->rateSpecies;
 }
 
-void Reaction::updateProp(double* speciesState, double volRatio) {
+void Reaction::updateProp(double volRatio) {
     this->oldProp = this->prop;    
     this->prop = this->rateConsts[0];
     
     for (int i = 0; i < this->numStoichSpecies; i++) {
         if (this->stoichCoeffs[i] < 0) {
             for (int j = 0; j < -this->stoichCoeffs[i]; j++) {
-                this->prop *= 1.0 * (this->stoichSpecies[i]->statePtr[0] - j);// / (j + 1);
+                this->prop *= 1.0 * (this->stoichSpecies[i]->state - j);// / (j + 1);
             }
         }
     }

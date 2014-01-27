@@ -12,7 +12,6 @@ public:
     const int numRxns;
     const int numSpecies;
     
-    double* speciesState;
     double vol;
     double volRatio;
     

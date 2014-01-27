@@ -7,10 +7,12 @@
 #include <random>
 #include <string>
 #include "main.h"
+#include "Distribution.h"
 #include "FileInterface.h"
 #include "PriorityQueue.h"
 #include "System.h"
 #include "Reaction.h"
+#include "Species.h"
 
 using namespace std;
 
@@ -158,7 +160,19 @@ int main(int argc, const char* argv[]) {
     double fwdWriteEnd[numTrials];
     
     double progStart;
-       
+    
+    Distribution* revDist = new Distribution(numTrials, rng());
+    Distribution* fwdDist = new Distribution(numTrials, rng());
+    
+    lastRevStatePt = new double*[numTrials];
+    for (int i = 0; i < numTrials; i++) {
+        lastRevStatePt[i] = new double[masterSys->numSpecies];
+        
+        for (int j = 0; j < masterSys->numSpecies; j++) {
+            lastRevStatePt[i][j] = masterSys->species[j]->state;
+        }
+    }
+    
     if (!skipInitFwd) {                
         progStart = omp_get_wtime();
         
@@ -190,12 +204,12 @@ int main(int argc, const char* argv[]) {
             sys->init(rng());            
             
             for (int j = 0; j < sys->numSpecies; j++) {
-                sys->speciesState[j] = lastFwdStatePt[i][j];
+                sys->species[j]->state = lastFwdStatePt[i][j];
             }
             delete[] lastFwdStatePt[i];
 
             for (int j = 0; j < sys->numRxns; j++) {
-                sys->rxns[j]->updateProp(sys->speciesState, sys->volRatio);
+                sys->rxns[j]->updateProp(sys->volRatio);
             }
             sys->initRev();
 
@@ -321,7 +335,7 @@ void simFwd(System* sys, int numTimePts, double* time, double** state) {
         sys->updateTime(time[i]);
 
         for (int j = 0; j < sys->numSpecies; j++) {
-            state[j][i] = sys->speciesState[j];
+            state[j][i] = sys->species[j]->state;
         }
     }
 }
@@ -338,7 +352,7 @@ void simRev(System* sys, int numTimePts, double* time, double** state) {
         sys->updateTime(time[i]);
         
         for (int j = 0; j < sys->numSpecies; j++) {
-            state[j][i] = sys->speciesState[j];
+            state[j][i] = sys->species[j]->state;
         }
     }
 }
