@@ -167,6 +167,10 @@ void PriorityQueue::updateNodeByNodeId(int nodeId, double newTime) {
     this->nodes[nodeId]->time = newTime;
 }
 
+void PriorityQueue::updateRxnByNodeId(int nodeId, Reaction* newRxn) {
+    this->nodes[nodeId]->rxn = newRxn;
+}
+
 double PriorityQueue::getTimeByNodeId(int nodeId) const {
     return this->nodes[nodeId]->time;
 }

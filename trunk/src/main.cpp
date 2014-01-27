@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
@@ -86,6 +87,10 @@ int main(int argc, const char* argv[]) {
     
     FileInterface* fi = new FileInterface(fileName);
     std::mt19937 rng(seed);   
+        
+    if (stoppingTol > 0) {
+        fi->overwriteStoppingTol(stoppingTol);
+    }
     
     int numTrials;
     double startTime;
@@ -95,16 +100,18 @@ int main(int argc, const char* argv[]) {
     int numDataSavePts;
     int* dataSavePts;
     
-    if (stoppingTol > 0) {
-        fi->overwriteStoppingTol(stoppingTol);
-    }
-    
     System* masterSys = fi->readFileData(numTrials, startTime, endTime, numTimePts, timeStep, stoppingTol, numDataSavePts, dataSavePts);
             
     double* time = new double[numTimePts];  
-    double** state = new double*[masterSys->numSpecies];
-    for (int i = 0; i < masterSys->numSpecies; i++) {
-        state[i] = new double[numTimePts];
+    
+    int numThreads = omp_get_max_threads();
+    
+    double*** state = new double**[numThreads];
+    for (int i = 0; i < numThreads; i++) {
+        state[i] = new double*[masterSys->numSpecies];
+        for (int j = 0; j < masterSys->numSpecies; j++) {
+            state[i][j] = new double[numTimePts];
+        }
     }
     
     double** avFwdSpeciesState = new double*[numTimePts];    
@@ -155,16 +162,18 @@ int main(int argc, const char* argv[]) {
     if (!skipInitFwd) {                
         progStart = omp_get_wtime();
         
-        #pragma omp parallel for default(shared) firstprivate(state) private(sys)
+        #pragma omp parallel for default(shared) private(sys)
         for (int i = 0; i < numTrials; i++) {        
+            int threadId = omp_get_thread_num();            
+            
             initStart[i] = omp_get_wtime();        
             sys = new System(*masterSys);
             sys->init(rng());        
             initEnd[i] = omp_get_wtime();
             
             varName = "initFwdData";
-            simFwd(sys, numTimePts, time, state);
-            writeStateData(sys, fi, varName, i, state, numTimePts, revWriteStart, revWriteEnd, lock);
+            simFwd(sys, numTimePts, time, state[threadId]);
+            writeStateData(sys, fi, varName, i, state[threadId], numTimePts, revWriteStart, revWriteEnd, lock);
         }
     }
     
@@ -173,10 +182,12 @@ int main(int argc, const char* argv[]) {
         masterSys->time = time[numTimePts - 1];
         lastFwdStatePt = fi->readLastDataPt("initFwdData", numTrials, masterSys->numSpecies, numTimePts);     
         
-        #pragma omp parallel for default(shared) firstprivate(state) private(sys)
-        for (int i = 0; i < numTrials; i++) {
+        #pragma omp parallel for default(shared) private(sys)
+        for (int i = 0; i < numTrials; i++) {    
+            int threadId = omp_get_thread_num(); 
+            
             sys = new System(*masterSys);
-            sys->init(rng());
+            sys->init(rng());            
             
             for (int j = 0; j < sys->numSpecies; j++) {
                 sys->speciesState[j] = lastFwdStatePt[i][j];
@@ -189,8 +200,8 @@ int main(int argc, const char* argv[]) {
             sys->initRev();
 
             varName = "initRevData";
-            simRev(sys, numTimePts, time, state);
-            writeStateData(sys, fi, varName, i, state, numTimePts, revWriteStart, revWriteEnd, lock);
+            simRev(sys, numTimePts, time, state[threadId]);
+            writeStateData(sys, fi, varName, i, state[threadId], numTimePts, revWriteStart, revWriteEnd, lock);
         }
     }
     
@@ -210,8 +221,8 @@ int main(int argc, const char* argv[]) {
                 initEnd[j] = omp_get_wtime();
 
                 varName = "fwdData";
-                simFwd(sys, numTimePts, time, state);
-                writeStateData(sys, fi, varName, j, state, numTimePts, revWriteStart, revWriteEnd, lock);
+                //simFwd(sys, numTimePts, time, state);
+                //writeStateData(sys, fi, varName, j, state, numTimePts, revWriteStart, revWriteEnd, lock);
             }
         }
     }
@@ -226,62 +237,6 @@ int main(int argc, const char* argv[]) {
     }    
     
     abort();
-    
-    #pragma omp parallel for default(shared) firstprivate(state) private(sys)
-    for (int i = 0; i < numTrials; i++) {        
-        initStart[i] = omp_get_wtime();        
-        sys = new System(*masterSys);
-        sys->init(rng());        
-        initEnd[i] = omp_get_wtime();
-        
-        if (skipInitRev) {
-            for (int j = 0; j < sys->numSpecies; j++) {
-                sys->speciesState[j] = lastRevStatePt[i][j];
-            }
-            delete[] lastRevStatePt[i];
-            
-            for (int j = 0; j < sys->numRxns; j++) {
-                sys->rxns[j]->updateProp(sys->speciesState, sys->volRatio);
-            }            
-            sys->initFwd();
-            
-            revWriteStart[i] = writeEnd[i];
-            revWriteEnd[i] = writeEnd[i];
-        } else {
-            if (skipInitFwd) {
-                sys->time = time[numTimePts - 1];
-
-                for (int j = 0; j < sys->numSpecies; j++) {
-                    sys->speciesState[j] = lastFwdStatePt[i][j];
-                }            
-                delete[] lastFwdStatePt[i];
-
-                for (int j = 0; j < sys->numRxns; j++) {
-                    sys->rxns[j]->updateProp(sys->speciesState, sys->volRatio);
-                }
-                sys->initRev();
-
-                writeStart[i] = initEnd[i];
-                writeEnd[i] = initEnd[i];
-            } else {
-                simFwd(sys, numTimePts, time, state);
-                writeStateData(sys, fi, varName, i, state, numTimePts, writeStart, writeEnd, lock);
-            }
-            
-            varName = "revState";
-            simRev(sys, numTimePts, time, state);
-            writeStateData(sys, fi, varName, i, state, numTimePts, revWriteStart, revWriteEnd, lock);
-        }
-        
-        if (skipRefineFwd) {
-            fwdWriteStart[i] = revWriteEnd[i];
-            fwdWriteEnd[i] = revWriteEnd[i];
-        } else {            
-            varName = "fwdState";
-            simFwd(sys, numTimePts, time, state);
-            writeStateData(sys, fi, varName, i, state, numTimePts, fwdWriteStart, fwdWriteEnd, lock);
-        }
-    }
     
     double progEnd = omp_get_wtime();
     
