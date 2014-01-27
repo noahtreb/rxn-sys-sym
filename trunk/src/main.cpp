@@ -155,7 +155,7 @@ int main(int argc, const char* argv[]) {
     if (!skipInitFwd) {                
         progStart = omp_get_wtime();
         
-        #pragma omp parallel for default(shared) firstprivate(state) private(sys)
+        //#pragma omp parallel for default(shared) firstprivate(state) private(sys)
         for (int i = 0; i < numTrials; i++) {        
             initStart[i] = omp_get_wtime();        
             sys = new System(*masterSys);
@@ -173,7 +173,7 @@ int main(int argc, const char* argv[]) {
         masterSys->time = time[numTimePts - 1];
         lastFwdStatePt = fi->readLastDataPt("initFwdData", numTrials, masterSys->numSpecies, numTimePts);     
         
-        #pragma omp parallel for default(shared) firstprivate(state) private(sys)
+        //#pragma omp parallel for default(shared) firstprivate(state) private(sys)
         for (int i = 0; i < numTrials; i++) {
             sys = new System(*masterSys);
             sys->init(rng());
@@ -360,7 +360,7 @@ int main(int argc, const char* argv[]) {
 void simFwd(System* sys, int numTimePts, double* time, double** state) {
     for (int i = 0; i < numTimePts; i++) {
         while(sys->rxnPq->getNextTime() <= time[i]) {
-            sys->execRxn(1);
+            sys->execRxn(true);
         }
         
         sys->updateTime(time[i]);
@@ -376,7 +376,7 @@ void simRev(System* sys, int numTimePts, double* time, double** state) {
         double nextTime = sys->rxnPq->getNextTime();
         
         while(nextTime >= time[i] && nextTime != -DBL_MAX) {
-            sys->execRxn(-1);
+            sys->execRxn(false);
             nextTime = sys->rxnPq->getNextTime();
         }
         

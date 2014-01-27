@@ -10,7 +10,7 @@
 using namespace std;
 
 System::System(double vol, const int numRxns, Reaction** rxns, const int numSpecies, 
-        Species** species, double* initSpeciesState, bool* speciesStateChanges) : 
+        Species** species, double* initSpeciesState) : 
         numRxns(numRxns), numSpecies(numSpecies) {    
     this->rxns = rxns; 
     this->rxnPq = new PriorityQueue(numRxns, true);
@@ -22,11 +22,9 @@ System::System(double vol, const int numRxns, Reaction** rxns, const int numSpec
     
     this->species = species;
     this->speciesState = new double[numSpecies];
-    this->speciesStateChanges = new bool[numSpecies];
     for (int i = 0; i < numSpecies; i++) {
         this->speciesState[i] = initSpeciesState[i];
-        this->speciesStateChanges[i] = speciesStateChanges[i];
-        this->species[i]->state = &speciesState[i];
+        this->species[i]->statePtr = &speciesState[i];
     }
     
     for (int i = 0; i < numRxns; i++) {
@@ -36,12 +34,28 @@ System::System(double vol, const int numRxns, Reaction** rxns, const int numSpec
 }
 
 System::System(const System& other) : numRxns(other.numRxns), numSpecies(other.numSpecies) {
-    // Does not copy the Mersenne twister.
+    // Does not copy the Mersenne twister.    
+    
+    this->species = new Species*[this->numSpecies];    
+    this->speciesState = new double[this->numSpecies];
+    for (int i = 0; i < numSpecies; i++) {
+        this->species[i] = new Species(*(other.species[i]));
+        this->speciesState[i] = other.speciesState[i];
+        this->species[i]->statePtr = &this->speciesState[i];
+    }
     
     this->rxns = new Reaction*[this->numRxns];
     for (int i = 0; i < this->numRxns; i++) {
         this->rxns[i] = new Reaction(*(other.rxns[i]));
-    }
+        
+        for (int j = 0; j < rxns[i]->numStoichSpecies; j++) {
+            this->rxns[i]->stoichSpecies[j] = this->species[this->rxns[i]->stoichSpecies[j]->id];
+        }
+        
+        for (int j = 0; j < rxns[i]->numRateSpecies; j++) {
+            this->rxns[i]->rateSpecies[j] = this->species[this->rxns[i]->rateSpecies[j]->id];
+        }
+    }    
     
     this->rxnPq = new PriorityQueue(*(other.rxnPq));
     
@@ -49,15 +63,6 @@ System::System(const System& other) : numRxns(other.numRxns), numSpecies(other.n
     this->volRatio = other.volRatio;
     
     this->time = other.time;
-    
-    this->species = new Species*[this->numSpecies];    
-    this->speciesState = new double[this->numSpecies];
-    this->speciesStateChanges = new bool[this->numSpecies];
-    for (int i = 0; i < numSpecies; i++) {
-        this->species[i] = new Species(*(other.species[i]));
-        this->speciesState[i] = other.speciesState[i];
-        this->speciesStateChanges[i] = other.speciesStateChanges[i];
-    }
 }
 
 System::~System() {
@@ -100,7 +105,14 @@ void System::initRev() {
     }    
 }
 
-void System::setRxnTimes(Reaction* execRxn, double execRxnTime, int dir) {     
+void System::setRxnTimes(Reaction* execRxn, double execRxnTime, bool fwd) {     
+    int dir;
+    if (fwd) {
+        dir = 1;
+    } else {
+        dir = -1;
+    }
+    
     bool updateMask[this->numRxns];    
     for (int i = 0; i < this->numRxns; i++) {
         updateMask[i] = false;
@@ -134,29 +146,46 @@ void System::setRxnTimes(Reaction* execRxn, double execRxnTime, int dir) {
     this->rxnPq->heapSort(); 
 }
 
-void System::execRxn(int dir) {
+void System::execRxn(bool fwd) {
     Reaction* rxn = this->rxnPq->getNextRxn();
     double time = this->rxnPq->getNextTime();
     
+    int dir;
+    if (fwd) {
+        dir = 1;
+    } else {
+        dir = -1;
+    }
+    
     bool negState = false;
+    bool boundBreach = false;
     
     for (int i = 0; i < rxn->numStoichSpecies; i++) {
-        if (this->speciesStateChanges[rxn->stoichSpeciesIds[i]]) {
-            this->speciesState[rxn->stoichSpeciesIds[i]] += dir * rxn->stoichCoeffs[i];
+        if (rxn->stoichSpecies[i]->stateChanges) {
+            rxn->stoichSpecies[i]->statePtr[0] += dir * rxn->stoichCoeffs[i];
 
-            if (this->speciesState[rxn->stoichSpeciesIds[i]] < 0) {
+            if (rxn->stoichSpecies[i]->statePtr[0] < 0) {
                 negState = true;
+            }
+            
+            if ((fwd && rxn->stoichSpecies[i]->stateBoundedFwd) || (!fwd && rxn->stoichSpecies[i]->stateBoundedRev)) {
+                Species* species = rxn->stoichSpecies[i];
+                if (species->statePtr[0] < species->stateLowerBound || species->statePtr[0] > species->stateUpperBound) {
+                    boundBreach = true;
+                }
             }
         }
     }
     
-    if (!negState) {
-        this->setRxnTimes(rxn, time, dir);
+    if (!negState && !boundBreach) {
+        this->setRxnTimes(rxn, time, fwd);
         this->updateTime(time);
+    //} else if (boundBreach) {
+        //***TODO: implement behavior
     } else {
         for (int i = 0; i < rxn->numStoichSpecies; i++) {
-            if (this->speciesStateChanges[rxn->stoichSpeciesIds[i]]) {
-                this->speciesState[rxn->stoichSpeciesIds[i]] -= dir * rxn->stoichCoeffs[i];
+            if (rxn->stoichSpecies[i]->stateChanges) {
+                rxn->stoichSpecies[i]->statePtr[0] -= dir * rxn->stoichCoeffs[i];
             }
         }
         
