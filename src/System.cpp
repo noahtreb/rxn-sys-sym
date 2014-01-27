@@ -48,16 +48,20 @@ System::System(const System& other) : numRxns(other.numRxns), numSpecies(other.n
     for (int i = 0; i < this->numRxns; i++) {
         this->rxns[i] = new Reaction(*(other.rxns[i]));
         
-        for (int j = 0; j < rxns[i]->numStoichSpecies; j++) {
+        for (int j = 0; j < this->rxns[i]->numStoichSpecies; j++) {
             this->rxns[i]->stoichSpecies[j] = this->species[this->rxns[i]->stoichSpecies[j]->id];
         }
         
-        for (int j = 0; j < rxns[i]->numRateSpecies; j++) {
+        for (int j = 0; j < this->rxns[i]->numRateSpecies; j++) {
             this->rxns[i]->rateSpecies[j] = this->species[this->rxns[i]->rateSpecies[j]->id];
         }
     }    
     
-    this->rxnPq = new PriorityQueue(*(other.rxnPq));
+    this->rxnPq = new PriorityQueue(*(other.rxnPq));    
+    for (int i = 0; i < this->rxnPq->getNumNodes(); i++) {
+        int rxnId = this->rxnPq->getRxnIdByNodeId(i);
+        this->rxnPq->updateRxnByNodeId(i, this->rxns[rxnId]);
+    }
     
     this->vol = other.vol;
     this->volRatio = other.volRatio;

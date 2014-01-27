@@ -36,6 +36,7 @@ public:
     void updatePqByNodeId(int nodeId, double newTime);
     
     void updateNodeByNodeId(int nodeId, double newTime);
+    void updateRxnByNodeId(int nodeId, Reaction* newRxn);
     
     double getTimeByNodeId(int nodeId) const;
     int getRxnIdByNodeId(int nodeId) const;
