@@ -17,7 +17,7 @@ Node::Node(const Node& other) {
 }
 
 Node::~Node() {
-    
+    this->rxn = NULL;
 }
 
 PriorityQueue::PriorityQueue(int maxNodes, bool minHeap) {
