@@ -155,7 +155,7 @@ int main(int argc, const char* argv[]) {
     if (!skipInitFwd) {                
         progStart = omp_get_wtime();
         
-        //#pragma omp parallel for default(shared) firstprivate(state) private(sys)
+        #pragma omp parallel for default(shared) firstprivate(state) private(sys)
         for (int i = 0; i < numTrials; i++) {        
             initStart[i] = omp_get_wtime();        
             sys = new System(*masterSys);
@@ -173,7 +173,7 @@ int main(int argc, const char* argv[]) {
         masterSys->time = time[numTimePts - 1];
         lastFwdStatePt = fi->readLastDataPt("initFwdData", numTrials, masterSys->numSpecies, numTimePts);     
         
-        //#pragma omp parallel for default(shared) firstprivate(state) private(sys)
+        #pragma omp parallel for default(shared) firstprivate(state) private(sys)
         for (int i = 0; i < numTrials; i++) {
             sys = new System(*masterSys);
             sys->init(rng());
