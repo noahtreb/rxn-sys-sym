@@ -1,6 +1,7 @@
 #include "System.h"
 #include "PriorityQueue.h"
 #include "Reaction.h"
+#include "Species.h"
 #include <math.h>
 #include <float.h>
 #include <stdio.h>
@@ -9,15 +10,8 @@
 using namespace std;
 
 System::System(double vol, const int numRxns, Reaction** rxns, const int numSpecies, 
-        double* initSpeciesState, bool* speciesStateChanges, const double startTime, 
-        const double endTime, const double timeStep, const int numTimePts, 
-        double* const timePts, double** avFwdSpeciesState, double** avRevSpeciesState) : 
-        numRxns(numRxns), numSpecies(numSpecies), startTime(startTime), endTime(endTime), 
-        timeStep(timeStep), numTimePts(numTimePts) {
-    this->timePts = timePts; 
-    this->avFwdSpeciesState = avFwdSpeciesState;
-    this->avRevSpeciesState = avRevSpeciesState;
-    
+        Species** species, double* initSpeciesState, bool* speciesStateChanges) : 
+        numRxns(numRxns), numSpecies(numSpecies) {    
     this->rxns = rxns; 
     this->rxnPq = new PriorityQueue(numRxns, true);
     
@@ -26,11 +20,13 @@ System::System(double vol, const int numRxns, Reaction** rxns, const int numSpec
     
     this->time = 0;
     
+    this->species = species;
     this->speciesState = new double[numSpecies];
     this->speciesStateChanges = new bool[numSpecies];
     for (int i = 0; i < numSpecies; i++) {
         this->speciesState[i] = initSpeciesState[i];
         this->speciesStateChanges[i] = speciesStateChanges[i];
+        this->species[i]->state = &speciesState[i];
     }
     
     for (int i = 0; i < numRxns; i++) {
@@ -39,13 +35,8 @@ System::System(double vol, const int numRxns, Reaction** rxns, const int numSpec
     }
 }
 
-System::System(const System& other) : numRxns(other.numRxns), numSpecies(other.numSpecies), 
-        startTime(other.startTime), endTime(other.endTime), timeStep(other.timeStep), numTimePts(other.numTimePts) {
+System::System(const System& other) : numRxns(other.numRxns), numSpecies(other.numSpecies) {
     // Does not copy the Mersenne twister.
-    
-    this->timePts = other.timePts;
-    this->avFwdSpeciesState = other.avFwdSpeciesState; 
-    this->avRevSpeciesState = other.avRevSpeciesState;
     
     this->rxns = new Reaction*[this->numRxns];
     for (int i = 0; i < this->numRxns; i++) {
@@ -59,9 +50,11 @@ System::System(const System& other) : numRxns(other.numRxns), numSpecies(other.n
     
     this->time = other.time;
     
+    this->species = new Species*[this->numSpecies];    
     this->speciesState = new double[this->numSpecies];
     this->speciesStateChanges = new bool[this->numSpecies];
     for (int i = 0; i < numSpecies; i++) {
+        this->species[i] = new Species(*(other.species[i]));
         this->speciesState[i] = other.speciesState[i];
         this->speciesStateChanges[i] = other.speciesStateChanges[i];
     }
@@ -175,6 +168,7 @@ void System::updateTime(double newTime) {
     this->time = newTime;
 }
 
+/*
 int System::findClosestTimePt(double time) const {
     int index = floor((time-this->startTime)/this->timeStep);
     
@@ -183,4 +177,4 @@ int System::findClosestTimePt(double time) const {
     } else {
         return index + 1;
     }
-}
+}*/

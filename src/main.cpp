@@ -130,10 +130,6 @@ int main(int argc, const char* argv[]) {
         time[i] = startTime + timeStep * i;
     }    
     fi->writeTimeData(time, numTimePts);
-    
-    masterSys->timePts = time;
-    masterSys->avFwdSpeciesState = avFwdSpeciesState;
-    masterSys->avRevSpeciesState = avRevSpeciesState;
             
     string varName;
     double** lastFwdStatePt;
@@ -400,6 +396,7 @@ void writeStateData(System* sys, FileInterface* fi, string varName, int trial, d
     writeEnd[trial] = omp_get_wtime();
 }
 
+/*
 void averageStateData(int numTrials, int numTimePts, int numSpecies, double*** stateData, double** avStateData, double** lastAvStateData) {
     for (int i = 0; i < numTimePts; i++) {
         for (int j = 0; j < numSpecies; j++) {
@@ -421,8 +418,4 @@ void averageStateData(int numTrials, int numTimePts, int numSpecies, double*** s
             avStateData[i][j] /= numTrials;
         }
     }
-}
-
-double calcDist(double** avStateData1, double** avStateData2) {
-    
-}
+}*/
