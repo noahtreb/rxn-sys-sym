@@ -5,7 +5,7 @@ cppLibs = -lnetcdf -lnetcdf_c++
 oFlags = 
 dFlags = -g -Wall -Wextra
 
-srcs = main.cpp Distribution.cpp FileInterface.cpp System.cpp PriorityQueue.cpp Reaction.cpp
+srcs = main.cpp Distribution.cpp FileInterface.cpp System.cpp PriorityQueue.cpp Reaction.cpp Species.cpp
 makeObjectFile = $(cpp) $(cppFlags) -c #-o $@
 
 .phony: clean
@@ -39,3 +39,6 @@ PriorityQueue.o: PriorityQueue.h PriorityQueue.cpp
 
 Reaction.o: Reaction.h Reaction.cpp
 	$(makeObjectFile) Reaction.cpp
+
+Species.o: Species.h Species.cpp
+	$(makeObjectFile) Species.cpp

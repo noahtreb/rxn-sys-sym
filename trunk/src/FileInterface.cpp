@@ -1,4 +1,5 @@
 #include "FileInterface.h"
+#include "Species.h"
 #include "System.h"
 #include "Reaction.h"
 #include <stdio.h>
@@ -64,6 +65,36 @@ System* FileInterface::readFileData(int& numTrials, double& startTime, double& e
         }
     }
     
+    int* speciesStateBoundedFwdTemp = new int[numSpecies];
+    file.get_var("speciesStateBoundedFwd")->get(speciesStateBoundedFwdTemp, 1, numSpecies);
+    
+    bool* speciesStateBoundedFwd = new bool[numSpecies];
+    for (int i = 0; i < numSpecies; i++) {
+        if (speciesStateBoundedFwdTemp[i] == 1) {
+            speciesStateBoundedFwd[i] = true;
+        } else {
+            speciesStateBoundedFwd[i] = false;
+        }
+    }
+    
+    int* speciesStateBoundedRevTemp = new int[numSpecies];
+    file.get_var("speciesStateBoundedRev")->get(speciesStateBoundedRevTemp, 1, numSpecies);
+    
+    bool* speciesStateBoundedRev = new bool[numSpecies];
+    for (int i = 0; i < numSpecies; i++) {
+        if (speciesStateBoundedRevTemp[i] == 1) {
+            speciesStateBoundedRev[i] = true;
+        } else {
+            speciesStateBoundedRev[i] = false;
+        }
+    }
+        
+    double* speciesStateLowerBounds = new double[numSpecies];
+    file.get_var("speciesStateLowerBounds")->get(speciesStateLowerBounds, 1, numSpecies);
+    
+    double* speciesStateUpperBounds = new double[numSpecies];
+    file.get_var("speciesStateUpperBounds")->get(speciesStateUpperBounds, 1, numSpecies);
+    
     int* numStoichSpecies = new int[numRxns];
     file.get_var("numRxnSpecies")->get(numStoichSpecies, 1, numRxns);
     
@@ -126,12 +157,17 @@ System* FileInterface::readFileData(int& numTrials, double& startTime, double& e
         }
     }
     
+    Species** species = new Species*[numSpecies];
+    for (int i = 0; i < numSpecies; i++) {
+        species[i] = new Species(i, NULL, speciesStateChanges[i], speciesStateUpperBounds[i], speciesStateLowerBounds[i], speciesStateBoundedFwd[i], speciesStateBoundedRev[i]);
+    }
+    
     Reaction** rxns = new Reaction*[numRxns];    
     for (int i = 0; i < numRxns; i++) {        
         rxns[i] = new Reaction(i, numStoichSpecies[i], rxnStoichSpeciesIds[i], rxnStoichCoeffs[i], rxnRateLaws[i], numRxnRateConsts[i], rxnRateConsts[i], numRxnRateSpecies[i], rxnRateSpeciesIds[i], numRxnDeps[i], rxnDeps[i], vol);
     }
     
-    System* sys = new System(vol, numRxns, rxns, numSpecies, speciesInitState, speciesStateChanges, startTime, endTime, timeStep, numTimePts, NULL, NULL, NULL);
+    System* sys = new System(vol, numRxns, rxns, numSpecies, species, speciesInitState, speciesStateChanges);
     
     delete[] speciesInitState;
     delete[] speciesStateChangesTemp;
