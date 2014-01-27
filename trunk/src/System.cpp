@@ -21,14 +21,12 @@ System::System(double vol, const int numRxns, Reaction** rxns, const int numSpec
     this->time = 0;
     
     this->species = species;
-    this->speciesState = new double[numSpecies];
     for (int i = 0; i < numSpecies; i++) {
-        this->speciesState[i] = initSpeciesState[i];
-        this->species[i]->statePtr = &speciesState[i];
+        this->species[i]->state = initSpeciesState[i];
     }
     
     for (int i = 0; i < numRxns; i++) {
-        this->rxns[i]->updateProp(this->speciesState, this->volRatio);
+        this->rxns[i]->updateProp(this->volRatio);
         this->rxns[i]->oldProp = this->rxns[i]->prop;
     }
 }
@@ -36,12 +34,9 @@ System::System(double vol, const int numRxns, Reaction** rxns, const int numSpec
 System::System(const System& other) : numRxns(other.numRxns), numSpecies(other.numSpecies) {
     // Does not copy the Mersenne twister.    
     
-    this->species = new Species*[this->numSpecies];    
-    this->speciesState = new double[this->numSpecies];
+    this->species = new Species*[this->numSpecies];
     for (int i = 0; i < numSpecies; i++) {
         this->species[i] = new Species(*(other.species[i]));
-        this->speciesState[i] = other.speciesState[i];
-        this->species[i]->statePtr = &this->speciesState[i];
     }
     
     this->rxns = new Reaction*[this->numRxns];
@@ -76,7 +71,6 @@ System::~System() {
     
     delete[] this->rxns;
     delete this->rxnPq;
-    delete this->speciesState;
     delete this->rng;
 }
 
@@ -126,10 +120,10 @@ void System::setRxnTimes(Reaction* execRxn, double execRxnTime, bool fwd) {
     for (int i = 0; i < execRxn->numDeps; i++) {
         rxnId = execRxn->deps[i];
         updateMask[rxnId] = true;        
-        this->rxns[rxnId]->updateProp(this->speciesState, this->volRatio);
+        this->rxns[rxnId]->updateProp(this->volRatio);
     }
     
-    execRxn->updateProp(this->speciesState, this->volRatio);
+    execRxn->updateProp(this->volRatio);
     if (execRxn->prop > 0) {
         this->rxnPq->updateNodeByNodeId(0, execRxnTime - dir * log(1.0 * (*this->rng)() / this->rng->max()) / execRxn->prop);
     }
@@ -166,15 +160,15 @@ void System::execRxn(bool fwd) {
     
     for (int i = 0; i < rxn->numStoichSpecies; i++) {
         if (rxn->stoichSpecies[i]->stateChanges) {
-            rxn->stoichSpecies[i]->statePtr[0] += dir * rxn->stoichCoeffs[i];
+            rxn->stoichSpecies[i]->state += dir * rxn->stoichCoeffs[i];
 
-            if (rxn->stoichSpecies[i]->statePtr[0] < 0) {
+            if (rxn->stoichSpecies[i]->state < 0) {
                 negState = true;
             }
             
             if ((fwd && rxn->stoichSpecies[i]->stateBoundedFwd) || (!fwd && rxn->stoichSpecies[i]->stateBoundedRev)) {
                 Species* species = rxn->stoichSpecies[i];
-                if (species->statePtr[0] < species->stateLowerBound || species->statePtr[0] > species->stateUpperBound) {
+                if (species->state < species->stateLowerBound || species->state > species->stateUpperBound) {
                     boundBreach = true;
                 }
             }
@@ -185,11 +179,11 @@ void System::execRxn(bool fwd) {
         this->setRxnTimes(rxn, time, fwd);
         this->updateTime(time);
     //} else if (boundBreach) {
-        //***TODO: implement behavior
+        //return false;
     } else {
         for (int i = 0; i < rxn->numStoichSpecies; i++) {
             if (rxn->stoichSpecies[i]->stateChanges) {
-                rxn->stoichSpecies[i]->statePtr[0] -= dir * rxn->stoichCoeffs[i];
+                rxn->stoichSpecies[i]->state -= dir * rxn->stoichCoeffs[i];
             }
         }
         
