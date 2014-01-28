@@ -162,11 +162,45 @@ int main(int argc, const char* argv[]) {
     
     double progStart;
     
-    Distribution* revDist = new Distribution(numTrials, rng());
-    Distribution* fwdDist = new Distribution(numTrials, rng());
+    int j = 0;
+    int* distSpeciesKey = new int[numBoundedSpeciesStates];
+    int* speciesDistKey = new int[masterSys->numSpecies];
+    for (int i = 0; i < masterSys->numSpecies; i++) {
+        if (masterSys->species[i]->stateBounded) {
+            distSpeciesKey[j] = i;
+            speciesDistKey[i] = j;
+            j++;
+        } else {
+            speciesDistKey[i] = -1;
+        }
+    }
+    
+    Distribution** revDistsPrev = new Distribution*[numBoundedSpeciesStates];
+    for (int i = 0; i < numBoundedSpeciesStates; i++) {
+        revDistsPrev[i] = new Distribution(masterSys->species[distSpeciesKey[i]], numTrials, rng());
+    }
+    
+    Distribution** revDists = new Distribution*[numBoundedSpeciesStates];
+    for (int i = 0; i < numBoundedSpeciesStates; i++) {
+        revDists[i] = new Distribution(masterSys->species[distSpeciesKey[i]], numTrials, rng());
+    }
+    
+    Distribution** fwdDistsPrev = new Distribution*[numBoundedSpeciesStates];
+    for (int i = 0; i < numBoundedSpeciesStates; i++) {
+        fwdDistsPrev[i] = new Distribution(masterSys->species[distSpeciesKey[i]], numTrials, rng());
+    }
+    
+    Distribution** fwdDists = new Distribution*[numBoundedSpeciesStates];
+    for (int i = 0; i < numBoundedSpeciesStates; i++) {
+        fwdDists[i] = new Distribution(masterSys->species[distSpeciesKey[i]], numTrials, rng());
+    }
     
     if (!skipInitFwd) {                
         progStart = omp_get_wtime();
+        
+        for (int i = 0; i < numBoundedSpeciesStates; i++) {
+            revDists[i]->addNode(revDists[i]->species->state, numTrials);
+        }
         
         #pragma omp parallel for default(shared) private(sys)
         for (int i = 0; i < numTrials; i++) {        
@@ -174,11 +208,12 @@ int main(int argc, const char* argv[]) {
             
             initStart[i] = omp_get_wtime();        
             sys = new System(*masterSys);
-            sys->init(rng());        
+            sys->seed(rng());
+            sys->initFwd();
             initEnd[i] = omp_get_wtime();
             
             varName = "initFwdData";
-            simFwd(sys, numTimePts, time, state[threadId]);
+            simFwd(sys, numTimePts, time, state[threadId], revDists, speciesDistKey);
             writeStateData(sys, fi, varName, i, state[threadId], numTimePts, revWriteStart, revWriteEnd, lock);
         }
     }
@@ -186,14 +221,18 @@ int main(int argc, const char* argv[]) {
     if (!skipInitRev) {
         masterSys->rxnPq->minHeap = false;
         masterSys->time = time[numTimePts - 1];
-        lastFwdStatePt = fi->readLastDataPt("initFwdData", numTrials, masterSys->numSpecies, numTimePts);     
+        lastFwdStatePt = fi->readLastDataPt("initFwdData", numTrials, masterSys->numSpecies, numTimePts);
+        
+        for (int i = 0; i < numBoundedSpeciesStates; i++) {             
+            fwdDists[i]->update(lastFwdStatePt, numTrials);
+        }
         
         #pragma omp parallel for default(shared) private(sys)
         for (int i = 0; i < numTrials; i++) {    
             int threadId = omp_get_thread_num(); 
             
             sys = new System(*masterSys);
-            sys->init(rng());            
+            sys->seed(rng());            
             
             for (int j = 0; j < sys->numSpecies; j++) {
                 sys->species[j]->state = lastFwdStatePt[i][j];
@@ -206,7 +245,7 @@ int main(int argc, const char* argv[]) {
             sys->initRev();
 
             varName = "initRevData";
-            simRev(sys, numTimePts, time, state[threadId]);
+            simRev(sys, numTimePts, time, state[threadId], fwdDists, speciesDistKey);
             writeStateData(sys, fi, varName, i, state[threadId], numTimePts, revWriteStart, revWriteEnd, lock);
         }
     }
@@ -223,7 +262,7 @@ int main(int argc, const char* argv[]) {
             for (int j = 0; j < numTrials; j++) {        
                 initStart[j] = omp_get_wtime();        
                 sys = new System(*masterSys);
-                sys->init(rng());        
+                sys->seed(rng());        
                 initEnd[j] = omp_get_wtime();
 
                 varName = "fwdData";
@@ -318,10 +357,19 @@ int main(int argc, const char* argv[]) {
     return 0;
 }
 
-void simFwd(System* sys, int numTimePts, double* time, double** state) {
+void simFwd(System* sys, int numTimePts, double* time, double** state, Distribution** dists, int* speciesDistKey) {
+    int boundBreachSpeciesId;
+    
     for (int i = 0; i < numTimePts; i++) {
         while(sys->rxnPq->getNextTime() <= time[i]) {
-            sys->execRxn(true);
+            boundBreachSpeciesId = sys->execRxn(true);
+            
+            if (boundBreachSpeciesId >= 0) {
+                i = 0;
+                sys->updateTime(time[i]);
+                sys->species[boundBreachSpeciesId]->state = dists[speciesDistKey[boundBreachSpeciesId]]->sample();
+                sys->initFwd();
+            }
         }
         
         sys->updateTime(time[i]);
@@ -332,13 +380,22 @@ void simFwd(System* sys, int numTimePts, double* time, double** state) {
     }
 }
 
-void simRev(System* sys, int numTimePts, double* time, double** state) {
+void simRev(System* sys, int numTimePts, double* time, double** state, Distribution** dists, int* speciesDistKey) {
+    int boundBreachSpeciesId;
+    
     for (int i = numTimePts - 1; i >= 0; i--) {
         double nextTime = sys->rxnPq->getNextTime();
         
         while(nextTime >= time[i] && nextTime != -DBL_MAX) {
-            sys->execRxn(false);
+            boundBreachSpeciesId = sys->execRxn(false);
             nextTime = sys->rxnPq->getNextTime();
+            
+            if (boundBreachSpeciesId >= 0) {
+                i = numTimePts - 1;
+                sys->updateTime(time[i]);
+                sys->species[boundBreachSpeciesId]->state = dists[speciesDistKey[boundBreachSpeciesId]]->sample();
+                sys->initRev();
+            }
         }
         
         sys->updateTime(time[i]);
