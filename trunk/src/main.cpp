@@ -19,8 +19,7 @@ using namespace std;
 int main(int argc, const char* argv[]) {
     bool skipInitFwd = false;
     bool skipInitRev = false;
-    bool skipRefineFwd = false;
-    bool skipRefineRev = false;
+    bool skipRefine = false;
     int seed;
     double stoppingTol = -1;
     string fileName;
@@ -51,14 +50,7 @@ int main(int argc, const char* argv[]) {
                     case 'u':
                         temp = atoi(argv[i+1]);
                         if (temp == 1) {
-                            skipRefineFwd = true;
-                        }
-                        i++;
-                        break;
-                    case 'v':
-                        temp = atoi(argv[i+1]);
-                        if (temp == 1) {
-                            skipRefineRev = true;
+                            skipRefine = true;
                         }
                         i++;
                         break;
@@ -72,8 +64,8 @@ int main(int argc, const char* argv[]) {
             }
         }
     } else {
-        fprintf(stderr, "Usage: ./RxnSysSim <fileName> -r <seed> [-s <skipInitFwd>] [-t <skipInitRev>] [-u <skipRefineFwd>]\n");
-        fprintf(stderr, "                   [-v <skipRefineRev>] [-e <stoppingTol>] \n");
+        fprintf(stderr, "Usage: ./RxnSysSim <fileName> -r <seed> [-s <skipInitFwd>] [-t <skipInitRev>] [-u <skipRefine>]\n");
+        fprintf(stderr, "                   [-e <stoppingTol>] \n");
         fprintf(stderr, "            <fileName> Name of the netCDF file to read from and write to.\n");
         fprintf(stderr, "    -r          <seed> Integer used to seed the random number generator.\n");
         fprintf(stderr, "Optional arguments:\n");
@@ -81,8 +73,7 @@ int main(int argc, const char* argv[]) {
         fprintf(stderr, "                       should be used in the forward refinement algorithm.\n");
         fprintf(stderr, "    -t   <skipInitRev> Use this flag to indicate that preexisting data from the 'initRevData' variable\n");
         fprintf(stderr, "                       should be used in the reverse refinement algorithm.\n");
-        fprintf(stderr, "    -u <skipRefineFwd> Use this flag to bypass the forward refinement algorithm.\n");
-        fprintf(stderr, "    -v <skipRefineRev> Use this flag to bypass the reverse refinement algorithm.\n");
+        fprintf(stderr, "    -u    <skipRefine> Use this flag to bypass the forward and reverse refinement algorithms.\n");
         fprintf(stderr, "    -e   <stoppingTol> Maximum allowable L2 distance between successive probability distributions.\n\n");
         abort();
     }
@@ -214,14 +205,14 @@ int main(int argc, const char* argv[]) {
             
             varName = "initFwdData";
             simFwd(sys, numTimePts, time, state[threadId], revDists, speciesDistKey);
-            writeStateData(sys, fi, varName, i, state[threadId], numTimePts, revWriteStart, revWriteEnd, lock);
+            writeStateData(-1, sys, fi, varName, i, state[threadId], numTimePts, lock);
         }
     }
     
     if (!skipInitRev) {
         masterSys->rxnPq->minHeap = false;
         masterSys->time = time[numTimePts - 1];
-        lastFwdStatePt = fi->readLastDataPt("initFwdData", numTrials, masterSys->numSpecies, numTimePts);
+        lastFwdStatePt = fi->readInitDataPt("initFwdData", numTrials, masterSys->numSpecies, numTimePts - 1, numTimePts);
         
         for (int i = 0; i < numBoundedSpeciesStates; i++) {             
             fwdDists[i]->update(lastFwdStatePt, numTrials);
@@ -246,40 +237,77 @@ int main(int argc, const char* argv[]) {
 
             varName = "initRevData";
             simRev(sys, numTimePts, time, state[threadId], fwdDists, speciesDistKey);
-            writeStateData(sys, fi, varName, i, state[threadId], numTimePts, revWriteStart, revWriteEnd, lock);
+            writeStateData(-1, sys, fi, varName, i, state[threadId], numTimePts, lock);
         }
-    }
+    }  
     
-    abort();
-    
-    if (false){//!skipRefineFwd) {
-        initFwdData = fi->readStateData("initFwdState", numTrials, masterSys->numSpecies, numTimePts);         
-        averageStateData(numTrials, numTimePts, masterSys->numSpecies, initFwdData, avFwdSpeciesState, lastAvFwdSpeciesState);
-        
-        int i = 0;
-        while (true) {
-            #pragma omp parallel for default(shared) firstprivate(state) private(sys)
-            for (int j = 0; j < numTrials; j++) {        
-                initStart[j] = omp_get_wtime();        
+    if (!skipRefine) {        
+        for (int i = 0; i < numDataSavePts; i++) {
+            masterSys->rxnPq->minHeap = true;
+            masterSys->time = time[0];
+            if (i == 0) {
+                lastRevStatePt = fi->readInitDataPt("initRevData", numTrials, masterSys->numSpecies, 0, numTimePts);
+            } else {
+                lastRevStatePt = fi->readDataPt("revData", i - 1, numTrials, masterSys->numSpecies, 0, numTimePts);
+            }
+
+            for (int i = 0; i < numBoundedSpeciesStates; i++) {             
+                revDists[i]->update(lastRevStatePt, numTrials);
+            }
+            
+            #pragma omp parallel for default(shared) private(sys)
+            for (int j = 0; j < numTrials; j++) {                
+                int threadId = omp_get_thread_num(); 
+
                 sys = new System(*masterSys);
-                sys->seed(rng());        
-                initEnd[j] = omp_get_wtime();
+                sys->seed(rng());            
+
+                for (int k = 0; k < sys->numSpecies; k++) {
+                    sys->species[k]->state = lastRevStatePt[j][k];
+                }
+                delete[] lastRevStatePt[j];
+
+                for (int k = 0; k < sys->numRxns; k++) {
+                    sys->rxns[k]->updateProp(sys->volRatio);
+                }
+                sys->initFwd();
 
                 varName = "fwdData";
-                //simFwd(sys, numTimePts, time, state);
-                //writeStateData(sys, fi, varName, j, state, numTimePts, revWriteStart, revWriteEnd, lock);
+                simFwd(sys, numTimePts, time, state[threadId], revDists, speciesDistKey);
+                writeStateData(i, sys, fi, varName, j, state[threadId], numTimePts, lock);
+            }
+            
+            masterSys->rxnPq->minHeap = false;
+            masterSys->time = time[numTimePts - 1];
+            lastFwdStatePt = fi->readDataPt("fwdData", i, numTrials, masterSys->numSpecies, numTimePts - 1, numTimePts);
+
+            for (int i = 0; i < numBoundedSpeciesStates; i++) {             
+                fwdDists[i]->update(lastFwdStatePt, numTrials);
+            }
+            
+            #pragma omp parallel for default(shared) private(sys)
+            for (int j = 0; j < numTrials; j++) {                
+                int threadId = omp_get_thread_num(); 
+
+                sys = new System(*masterSys);
+                sys->seed(rng());            
+
+                for (int k = 0; k < sys->numSpecies; k++) {
+                    sys->species[k]->state = lastFwdStatePt[j][k];
+                }
+                delete[] lastFwdStatePt[j];
+
+                for (int k = 0; k < sys->numRxns; k++) {
+                    sys->rxns[k]->updateProp(sys->volRatio);
+                }
+                sys->initRev();
+
+                varName = "revData";
+                simRev(sys, numTimePts, time, state[threadId], revDists, speciesDistKey);
+                writeStateData(i, sys, fi, varName, j, state[threadId], numTimePts, lock);
             }
         }
     }
-    
-    if (!skipRefineRev) {
-        if (skipInitRev) {
-            lastRevStatePt = fi->readLastDataPt("initRevState", numTrials, masterSys->numSpecies, numTimePts);            
-            initRevData = fi->readStateData("initRevState", numTrials, masterSys->numSpecies, numTimePts);
-        }
-        
-        // ***Simulate backward in time with current.
-    }    
     
     abort();
     
@@ -406,12 +434,14 @@ void simRev(System* sys, int numTimePts, double* time, double** state, Distribut
     }
 }
 
-void writeStateData(System* sys, FileInterface* fi, string varName, int trial, double** state, int numTimePts, double* writeStart, double* writeEnd, omp_lock_t& lock) {        
-    writeStart[trial] = omp_get_wtime();
+void writeStateData(int dataSavePtId, System* sys, FileInterface* fi, string varName, int trial, double** state, int numTimePts, omp_lock_t& lock) {
     omp_set_lock(&lock);
-    fi->writeStateData(varName, trial, state, sys->numSpecies, numTimePts);
-    omp_unset_lock(&lock);        
-    writeEnd[trial] = omp_get_wtime();
+    if (dataSavePtId < 0) { 
+        fi->writeInitStateData(varName, trial, state, sys->numSpecies, numTimePts);
+    } else {        
+        fi->writeStateData(varName, dataSavePtId, trial, state, sys->numSpecies, numTimePts);
+    }
+    omp_unset_lock(&lock);
 }
 
 /*
