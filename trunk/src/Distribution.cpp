@@ -1,4 +1,5 @@
 #include "Distribution.h"
+#include "Species.h"
 #include <algorithm>
 #include <math.h>
 #include <random>
@@ -16,8 +17,13 @@ DistNode::~DistNode() {
     
 }
 
-Distribution::Distribution(int maxNodes, int seed) {    
+void DistNode::print() const {
+    fprintf(stdout, "%e, %i, %i\n", this->state, this->count, this->cumCount);
+}
+
+Distribution::Distribution(Species* species, int maxNodes, int seed) {    
     this->nodes = new DistNode*[maxNodes];
+    this->species = species;
     
     for (int i = 0; i < maxNodes; i++) {
         this->nodes[i] = new DistNode(-1, 0, 0);
@@ -34,6 +40,7 @@ Distribution::~Distribution() {
         delete this->nodes[i];
     }
     
+    this->species = NULL;
     delete[] this->nodes;
 }
 
@@ -54,12 +61,12 @@ void Distribution::clear() {
     this->numNodes = 0;
 }
 
-void Distribution::update(double* statesArr, int length) {
+void Distribution::update(double** statePt, int length) {
     this->numNodes = 0;
     
     std::vector<double> states;
     for (int i = 0; i < length; i++) {
-        states.push_back(statesArr[i]);
+        states.push_back(statePt[i][this->species->id]);
     }
     
     std::sort(states.begin(), states.end());
@@ -76,6 +83,8 @@ void Distribution::update(double* statesArr, int length) {
             count = 1;
         }
     }
+    
+    this->addNode(lastState, count);
 }
 
 int Distribution::getNumNodes() const {
@@ -155,4 +164,10 @@ double Distribution::sample() const {
     }
     
     return this->nodes[i]->state;
+}
+
+void Distribution::print() const {
+    for (int i = 0; i < this->numNodes; i++) {
+        this->nodes[i]->print();
+    }
 }

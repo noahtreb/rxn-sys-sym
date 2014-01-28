@@ -27,12 +27,12 @@ public:
     System(const System& other);
     virtual ~System();
     
-    void init(int seed);
+    void seed(int seed);
     void initFwd();
     void initRev();
     
     void setRxnTimes(Reaction* execRxn, double execRxnTime, bool fwd);
-    void execRxn(bool fwd);
+    int execRxn(bool fwd);
     void updateTime(double newTime);
 private:
     //int findClosestTimePt(double time) const;

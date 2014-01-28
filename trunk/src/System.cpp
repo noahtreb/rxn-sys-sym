@@ -74,9 +74,8 @@ System::~System() {
     delete this->rng;
 }
 
-void System::init(int seed) {
-    this->rng = new std::mt19937(seed);    
-    initFwd(); 
+void System::seed(int seed) {
+    this->rng = new std::mt19937(seed);
 }
 
 void System::initFwd() {
@@ -144,7 +143,7 @@ void System::setRxnTimes(Reaction* execRxn, double execRxnTime, bool fwd) {
     this->rxnPq->heapSort(); 
 }
 
-void System::execRxn(bool fwd) {
+int System::execRxn(bool fwd) {
     Reaction* rxn = this->rxnPq->getNextRxn();
     double time = this->rxnPq->getNextTime();
     
@@ -157,6 +156,7 @@ void System::execRxn(bool fwd) {
     
     bool negState = false;
     bool boundBreach = false;
+    int boundBreachSpeciesId = -1;
     
     for (int i = 0; i < rxn->numStoichSpecies; i++) {
         if (rxn->stoichSpecies[i]->stateChanges) {
@@ -168,27 +168,30 @@ void System::execRxn(bool fwd) {
             
             if (rxn->stoichSpecies[i]->stateBounded) {
                 Species* species = rxn->stoichSpecies[i];
-                if (species->state < species->stateLowerBound || species->state > species->stateUpperBound) {
+                if (species->state <= species->stateLowerBound || species->state >= species->stateUpperBound) {
                     boundBreach = true;
+                    boundBreachSpeciesId = rxn->stoichSpecies[i]->id;
                 }
             }
         }
     }
     
-    if (!negState && !boundBreach) {
-        this->setRxnTimes(rxn, time, fwd);
-        this->updateTime(time);
-    //} else if (boundBreach) {
-        //return false;
-    } else {
-        for (int i = 0; i < rxn->numStoichSpecies; i++) {
-            if (rxn->stoichSpecies[i]->stateChanges) {
-                rxn->stoichSpecies[i]->state -= dir * rxn->stoichCoeffs[i];
+    if (!boundBreach) {
+        if (!negState) {
+            this->setRxnTimes(rxn, time, fwd);
+            this->updateTime(time);
+        } else {
+            for (int i = 0; i < rxn->numStoichSpecies; i++) {
+                if (rxn->stoichSpecies[i]->stateChanges) {
+                    rxn->stoichSpecies[i]->state -= dir * rxn->stoichCoeffs[i];
+                }
             }
+
+            this->rxnPq->updatePqByNodeId(0, dir * DBL_MAX);
         }
-        
-        this->rxnPq->updatePqByNodeId(0, dir * DBL_MAX);
     }
+    
+    return boundBreachSpeciesId;
 }
 
 void System::updateTime(double newTime) {

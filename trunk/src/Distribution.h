@@ -3,6 +3,8 @@
 
 #include <random>
 
+class Species;
+
 class DistNode {
 public:
     double state;
@@ -11,18 +13,22 @@ public:
     
     DistNode(double state, int count, int cumCount);
     virtual ~DistNode();
+    
+    void print() const;
 private:
 };
 
 class Distribution {
 public:
-    Distribution(int maxNodes, int seed);
+    Species* species;
+    
+    Distribution(Species* species, int maxNodes, int seed);
     virtual ~Distribution();   
     
     void addNode(double state, int count);    
     void clear();
     
-    void update(double* statesArr, int length);
+    void update(double** statePt, int length);
     
     int getNumNodes() const;
     double getState(int nodeId) const;
@@ -30,6 +36,8 @@ public:
     
     double calcDistance(Distribution* other) const;
     double sample() const;
+    
+    void print() const;
 private:
     int numNodes;
     int maxNodes;
