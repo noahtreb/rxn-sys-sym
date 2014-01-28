@@ -42,6 +42,7 @@ Distribution::~Distribution() {
     
     this->species = NULL;
     delete[] this->nodes;
+    delete this->rng;
 }
 
 void Distribution::addNode(double state, int count) {

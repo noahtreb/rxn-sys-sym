@@ -23,7 +23,7 @@ public:
     
     std::mt19937* rng;
     
-    System(double vol, const int numRxns, Reaction** rxns, const int numSpecies, Species** species, double* initSpeciesState);
+    System(double vol, const int numRxns, Reaction** rxns, const int numSpecies, Species** species);
     System(const System& other);
     virtual ~System();
     

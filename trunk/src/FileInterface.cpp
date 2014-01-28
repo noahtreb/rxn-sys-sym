@@ -149,7 +149,7 @@ System* FileInterface::readFileData(int& numTrials, double& startTime, double& e
     
     Species** species = new Species*[numSpecies];
     for (int i = 0; i < numSpecies; i++) {
-        species[i] = new Species(i, NULL, speciesStateChanges[i], speciesStateUpperBounds[i], speciesStateLowerBounds[i], speciesStateBounded[i]);
+        species[i] = new Species(i, speciesInitState[i], speciesStateChanges[i], speciesStateUpperBounds[i], speciesStateLowerBounds[i], speciesStateBounded[i]);
     }
     
     Reaction** rxns = new Reaction*[numRxns];    
@@ -157,11 +157,20 @@ System* FileInterface::readFileData(int& numTrials, double& startTime, double& e
         rxns[i] = new Reaction(i, species, numStoichSpecies[i], rxnStoichSpeciesIds[i], rxnStoichCoeffs[i], rxnRateLaws[i], numRxnRateConsts[i], rxnRateConsts[i], numRxnRateSpecies[i], rxnRateSpeciesIds[i], numRxnDeps[i], rxnDeps[i], vol);
     }
     
-    System* sys = new System(vol, numRxns, rxns, numSpecies, species, speciesInitState);
+    System* sys = new System(vol, numRxns, rxns, numSpecies, species);
+    
+    for (int i = 0; i < numRxns; i++) {
+        delete[] rxnStoichSpeciesIds[i];
+        delete[] rxnRateSpeciesIds[i];
+    }
     
     delete[] speciesInitState;
     delete[] speciesStateChangesTemp;
     delete[] speciesStateChanges;
+    delete[] speciesStateBoundedTemp;
+    delete[] speciesStateBounded;
+    delete[] speciesStateLowerBounds;
+    delete[] speciesStateUpperBounds;
     delete[] numStoichSpecies;    
     delete[] rxnStoichSpeciesIds;    
     delete[] rxnStoichCoeffs;    
@@ -176,49 +185,35 @@ System* FileInterface::readFileData(int& numTrials, double& startTime, double& e
     return sys;
 }
 
-double** FileInterface::readInitDataPt(std::string varName, int numTrials, int numSpecies, int timePtId, int numTimePts) const {
+void FileInterface::readInitDataPt(std::string varName, int numTrials, int numSpecies, int timePtId, double** dataPt) const {
     NcFile file(this->fileName.c_str(), NcFile::ReadOnly);
     if (!file.is_valid()) {
         fprintf(stderr, "Error: %s could not be opened.\n", this->fileName.c_str());
         abort();
-    }     
-    
-    double** lastDataPt = new double*[numTrials];
-    for (int i = 0; i < numTrials; i++) {
-        lastDataPt[i] = new double[numSpecies];
     }
     
     NcVar* var = file.get_var(varName.c_str());    
     for (int i = 0; i < numTrials; i++) {
         var->set_cur(0, i, timePtId, 0);
-        var->get(lastDataPt[i], 1, 1, 1, numSpecies);
+        var->get(dataPt[i], 1, 1, 1, numSpecies);
     }
-    
-    return lastDataPt;
 }
 
-double** FileInterface::readDataPt(std::string varName, int dataSavePtId, int numTrials, int numSpecies, int timePtId, int numTimePts) const {
+void FileInterface::readDataPt(std::string varName, int dataSavePtId, int numTrials, int numSpecies, int timePtId, double** dataPt) const {
     NcFile file(this->fileName.c_str(), NcFile::ReadOnly);
     if (!file.is_valid()) {
         fprintf(stderr, "Error: %s could not be opened.\n", this->fileName.c_str());
         abort();
-    }     
-    
-    double** lastDataPt = new double*[numTrials];
-    for (int i = 0; i < numTrials; i++) {
-        lastDataPt[i] = new double[numSpecies];
     }
     
     NcVar* var = file.get_var(varName.c_str());    
     for (int i = 0; i < numTrials; i++) {
         var->set_cur(0, dataSavePtId, i, timePtId, 0);
-        var->get(lastDataPt[i], 1, 1, 1, 1, numSpecies);
-    }
-    
-    return lastDataPt;    
+        var->get(dataPt[i], 1, 1, 1, 1, numSpecies);
+    }   
 }
 
-double*** FileInterface::readStateData(std::string varName, int numTrials, int numSpecies, int numTimePts) const {
+/*double*** FileInterface::readStateData(std::string varName, int numTrials, int numSpecies, int numTimePts) const {
     NcFile file(this->fileName.c_str(), NcFile::ReadOnly);
     if (!file.is_valid()) {
         fprintf(stderr, "Error: %s could not be opened.\n", this->fileName.c_str());
@@ -242,7 +237,7 @@ double*** FileInterface::readStateData(std::string varName, int numTrials, int n
     }
     
     return stateData;
-}
+}*/
 
 void FileInterface::overwriteStoppingTol(double stoppingTol) const {
     NcFile file(this->fileName.c_str(), NcFile::Write);

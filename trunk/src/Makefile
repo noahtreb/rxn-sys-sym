@@ -2,7 +2,7 @@ cpp = g++
 
 cppFlags = -std=c++11 -fopenmp $(dFlags)
 cppLibs = -lnetcdf -lnetcdf_c++
-oFlags = 
+oFlags = -Ofast
 dFlags = -g -Wall -Wextra
 
 srcs = main.cpp Distribution.cpp FileInterface.cpp System.cpp PriorityQueue.cpp Reaction.cpp Species.cpp
