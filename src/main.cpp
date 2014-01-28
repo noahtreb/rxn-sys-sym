@@ -106,26 +106,7 @@ int main(int argc, const char* argv[]) {
         for (int j = 0; j < masterSys->numSpecies; j++) {
             state[i][j] = new double[numTimePts];
         }
-    }
-    
-    double** avFwdSpeciesState = new double*[numTimePts];    
-    double** avRevSpeciesState = new double*[numTimePts];
-    double** lastAvFwdSpeciesState = new double*[numTimePts];
-    double** lastAvRevSpeciesState = new double*[numTimePts];
-    
-    for (int i = 0; i < numTimePts; i++) {
-        avFwdSpeciesState[i] = new double[masterSys->numSpecies];
-        avRevSpeciesState[i] = new double[masterSys->numSpecies];
-        lastAvFwdSpeciesState[i] = new double[masterSys->numSpecies];
-        lastAvRevSpeciesState[i] = new double[masterSys->numSpecies];
-                
-        for (int j = 0; j < masterSys->numSpecies; j++) {
-            avFwdSpeciesState[i][j] = 0;
-            avRevSpeciesState[i][j] = 0;
-            lastAvFwdSpeciesState[i][j] = 0;
-            lastAvRevSpeciesState[i][j] = 0;
-        }
-    }       
+    }      
     
     for (int i = 0; i < numTimePts; i++) {
         time[i] = startTime + timeStep * i;
@@ -133,11 +114,14 @@ int main(int argc, const char* argv[]) {
     fi->writeTimeData(time, numTimePts);
             
     string varName;
-    double** lastFwdStatePt;
-    double** lastRevStatePt;
-    double*** initFwdData;
-    double*** initRevData;
+    double** lastFwdStatePt = new double*[numTrials];
+    double** lastRevStatePt = new double*[numTrials];
         
+    for (int i = 0; i < numTrials; i++) {
+        lastFwdStatePt[i] = new double[masterSys->numSpecies];
+        lastRevStatePt[i] = new double[masterSys->numSpecies];
+    }
+    
     omp_lock_t lock;
     omp_init_lock(&lock);
         
@@ -231,7 +215,7 @@ int main(int argc, const char* argv[]) {
         
         masterSys->rxnPq->minHeap = false;
         masterSys->time = time[numTimePts - 1];
-        lastFwdStatePt = fi->readInitDataPt("initFwdData", numTrials, masterSys->numSpecies, numTimePts - 1, numTimePts);
+        fi->readInitDataPt("initFwdData", numTrials, masterSys->numSpecies, numTimePts - 1, lastFwdStatePt);
         
         for (int i = 0; i < numBoundedSpeciesStates; i++) {             
             fwdDists[i]->update(lastFwdStatePt, numTrials);
@@ -250,7 +234,6 @@ int main(int argc, const char* argv[]) {
             for (int j = 0; j < sys->numSpecies; j++) {
                 sys->species[j]->state = lastFwdStatePt[i][j];
             }
-            delete[] lastFwdStatePt[i];
 
             for (int j = 0; j < sys->numRxns; j++) {
                 sys->rxns[j]->updateProp(sys->volRatio);
@@ -282,9 +265,9 @@ int main(int argc, const char* argv[]) {
             masterSys->rxnPq->minHeap = true;
             masterSys->time = time[0];
             if (i == 0) {
-                lastRevStatePt = fi->readInitDataPt("initRevData", numTrials, masterSys->numSpecies, 0, numTimePts);
+                fi->readInitDataPt("initRevData", numTrials, masterSys->numSpecies, 0, lastRevStatePt);
             } else {
-                lastRevStatePt = fi->readDataPt("revData", i - 1, numTrials, masterSys->numSpecies, 0, numTimePts);
+                fi->readDataPt("revData", i - 1, numTrials, masterSys->numSpecies, 0, lastRevStatePt);
             }
 
             for (int i = 0; i < numBoundedSpeciesStates; i++) {             
@@ -305,7 +288,6 @@ int main(int argc, const char* argv[]) {
                 for (int k = 0; k < sys->numSpecies; k++) {
                     sys->species[k]->state = lastRevStatePt[j][k];
                 }
-                delete[] lastRevStatePt[j];
 
                 for (int k = 0; k < sys->numRxns; k++) {
                     sys->rxns[k]->updateProp(sys->volRatio);
@@ -324,7 +306,7 @@ int main(int argc, const char* argv[]) {
             
             masterSys->rxnPq->minHeap = false;
             masterSys->time = time[numTimePts - 1];
-            lastFwdStatePt = fi->readDataPt("fwdData", i, numTrials, masterSys->numSpecies, numTimePts - 1, numTimePts);
+            fi->readDataPt("fwdData", i, numTrials, masterSys->numSpecies, numTimePts - 1, lastFwdStatePt);
 
             for (int i = 0; i < numBoundedSpeciesStates; i++) {             
                 fwdDists[i]->update(lastFwdStatePt, numTrials);
@@ -343,7 +325,6 @@ int main(int argc, const char* argv[]) {
                 for (int k = 0; k < sys->numSpecies; k++) {
                     sys->species[k]->state = lastFwdStatePt[j][k];
                 }
-                delete[] lastFwdStatePt[j];
 
                 for (int k = 0; k < sys->numRxns; k++) {
                     sys->rxns[k]->updateProp(sys->volRatio);
@@ -421,9 +402,41 @@ int main(int argc, const char* argv[]) {
     fprintf(stdout, "    Average trial execution time: %e s\n\n", avTrialTime);
     
     fprintf(stdout, "Total program execution time:          %e s\n\n", progEnd - progStart);
+        
+    delete[] dataSavePts;
+    delete[] time;
+    
+    for (int i = 0; i < numTrials; i++) {
+        delete[] lastFwdStatePt[i];
+        delete[] lastRevStatePt[i];
+    }
+    delete[] lastFwdStatePt;
+    delete[] lastRevStatePt;
+    
+    for (int i = 0; i < numThreads; i++) {
+        for (int j = 0; j < masterSys->numSpecies; j++) {
+            delete[] state[i][j];
+        }        
+        delete[] state[i];
+    }
+    delete[] state;
+    
+    delete[] distSpeciesKey;
+    delete[] speciesDistKey;
+    
+    for (int i = 0; i < numBoundedSpeciesStates; i++) {
+        delete revDists[i];
+        delete revDistsPrev[i];
+        delete fwdDists[i];
+        delete fwdDistsPrev[i];
+    }
+    delete[] revDists;
+    delete[] revDistsPrev;
+    delete[] fwdDists;
+    delete[] fwdDistsPrev;
     
     delete masterSys;    
-    delete fi;  
+    delete fi;
     
     return 0;
 }

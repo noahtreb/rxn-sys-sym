@@ -9,8 +9,7 @@
 
 using namespace std;
 
-System::System(double vol, const int numRxns, Reaction** rxns, const int numSpecies, 
-        Species** species, double* initSpeciesState) : 
+System::System(double vol, const int numRxns, Reaction** rxns, const int numSpecies, Species** species) : 
         numRxns(numRxns), numSpecies(numSpecies) {    
     this->rxns = rxns; 
     this->rxnPq = new PriorityQueue(numRxns, true);
@@ -18,12 +17,8 @@ System::System(double vol, const int numRxns, Reaction** rxns, const int numSpec
     this->vol = vol;
     this->volRatio = 1;
     
-    this->time = 0;
-    
+    this->time = 0;    
     this->species = species;
-    for (int i = 0; i < numSpecies; i++) {
-        this->species[i]->state = initSpeciesState[i];
-    }
     
     for (int i = 0; i < numRxns; i++) {
         this->rxns[i]->updateProp(this->volRatio);
@@ -65,10 +60,15 @@ System::System(const System& other) : numRxns(other.numRxns), numSpecies(other.n
 }
 
 System::~System() {
-    for (int i = 1; i < this->numRxns; i++) {
+    for (int i = 0; i < this->numSpecies; i++) {
+        delete this->species[i];
+    }
+    
+    for (int i = 0; i < this->numRxns; i++) {
         delete this->rxns[i];
     }
     
+    delete[] this->species;
     delete[] this->rxns;
     delete this->rxnPq;
     delete this->rng;

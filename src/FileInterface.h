@@ -14,9 +14,9 @@ public:
     virtual ~FileInterface();
     
     System* readFileData(int& numTrials, double& startTime, double& endTime, int& numTimePts, double& timeStep, double& stoppingTol, int& numDataSavePts, int*& dataSavePts, int& numBoundedSpeciesStates) const;
-    double** readInitDataPt(std::string varName, int numTrials, int numSpecies, int timePtId, int numTimePts) const;
-    double** readDataPt(std::string varName, int dataSavePtId, int numTrials, int numSpecies, int timePtId, int numTimePts) const;
-    double*** readStateData(std::string varName, int numTrials, int numSpecies, int numTimePts) const;
+    void readInitDataPt(std::string varName, int numTrials, int numSpecies, int timePtId, double** dataPt) const;
+    void readDataPt(std::string varName, int dataSavePtId, int numTrials, int numSpecies, int timePtId, double** dataPt) const;
+    //double*** readStateData(std::string varName, int numTrials, int numSpecies, int numTimePts) const;
         
     void overwriteStoppingTol(double stoppingTol) const;
     void writeTimeData(double* time, int numTimePts) const;
