@@ -9,7 +9,7 @@ class Distribution;
 
 void simFwd(System* sys, int numTimePts, double* time, double** state, Distribution** dists, int* speciesDistKey);
 void simRev(System* sys, int numTimePts, double* time, double** state, Distribution** dists, int* speciesDistKey);
-void writeStateData(System* sys, FileInterface* fi, std::string varName, int trial, double** state, int numTimePts, double* writeStart, double* writeEnd, omp_lock_t& lock);       
+void writeStateData(int dataSavePtId, System* sys, FileInterface* fi, std::string varName, int trial, double** state, int numTimePts, omp_lock_t& lock);       
 void averageStateData(int numTrials, int numTimePts, int numSpecies, double*** stateData, double** avStateData, double** lastAvStateData);
 double calcDist(double** avStateData1, double** avStateData2);
 
