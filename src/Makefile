@@ -1,7 +1,16 @@
+# Set C++ compiler.
 cpp = g++
+#cpp = /home/kaznessi/trebeshn/Software/gcc-4.8.1/bin/g++
 
-cppFlags = -std=c++11 -fopenmp $(dFlags)
-cppLibs = -lnetcdf -lnetcdf_c++
+# Set the lib and include directories into variables.
+libDir = /usr/lib
+incDir = /usr/include
+#libDir = /home/kaznessi/trebeshn/Software/netcdf-4.3.0/lib
+#incDir = /home/kaznessi/trebeshn/Software/netcdf-4.3.0/include
+
+# Set C++ flag.
+cppFlags = -I$(incDir) -std=c++11 -fopenmp $(dFlags)
+cppLibs = -L$(libDir) -lnetcdf -lnetcdf_c++
 oFlags = -Ofast
 dFlags = -g -Wall -Wextra
 
